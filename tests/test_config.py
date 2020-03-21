@@ -85,8 +85,8 @@ aws_rolename = myrole
             "aws_rolename": "myrole",
         })
 
-    def test_read_config_multiinherited(self):
-        """Test to make sure getting config works when inherited"""
+    def test_read_config_multi_inherited(self):
+        """Test to make sure getting config works when using multiple inheritance"""
         test_ui = MockUserInterface(argv=[
             "--profile",
             "myprofile",
