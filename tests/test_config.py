@@ -1,10 +1,9 @@
 """Unit tests for gimme_aws_creds.config.Config"""
 import argparse
-import unittest
 import tempfile
+import unittest
 
 from mock import patch
-from nose.tools import assert_equals
 
 from gimme_aws_creds import ui
 from gimme_aws_creds.config import Config
@@ -43,11 +42,11 @@ class TestConfig(unittest.TestCase):
     def test_get_args_username(self, mock_arg):
         """Test to make sure username gets returned"""
         self.config.get_args()
-        assert_equals(self.config.username, "ann")
+        self.assertEqual(self.config.username, "ann")
 
     def test_read_config(self):
         """Test to make sure getting config works"""
-        test_ui = MockUserInterface(argv = [
+        test_ui = MockUserInterface(argv=[
             "--profile",
             "myprofile",
         ])
@@ -63,7 +62,7 @@ client_id = foo
 
     def test_read_config_inherited(self):
         """Test to make sure getting config works when inherited"""
-        test_ui = MockUserInterface(argv = [
+        test_ui = MockUserInterface(argv=[
             "--profile",
             "myprofile",
         ])
@@ -85,6 +84,41 @@ aws_rolename = myrole
             "aws_appname": "baz",
             "aws_rolename": "myrole",
         })
+
+    def test_read_config_multiinherited(self):
+        """Test to make sure getting config works when inherited"""
+        test_ui = MockUserInterface(argv=[
+            "--profile",
+            "myprofile",
+        ])
+        with open(test_ui.HOME + "/.okta_aws_login_config", "w") as config_file:
+            config_file.write("""
+        [base]
+        client_id = bar
+        aws_appname = baz
+        write_aws_creds = True
+        
+        [base-stdout]
+        inherits = base
+        write_aws_creds = False
+        preferred_mfa_type = push
+        
+        [myprofile]
+        inherits = base-stdout
+        client_id = foo
+        aws_rolename = myrole
+        """)
+        config = Config(gac_ui=test_ui, create_config=False)
+        config.conf_profile = "myprofile"
+        profile_config = config.get_config_dict()
+        self.assertEqual(profile_config, {
+            'aws_appname': 'baz',
+            'aws_rolename': 'myrole',
+            'client_id': 'foo',
+            'preferred_mfa_type': 'push',
+            'write_aws_creds': 'False'
+        })
+
 
 class MockUserInterface(ui.UserInterface):
 

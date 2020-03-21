@@ -171,29 +171,44 @@ class Config(object):
         """returns the conf dict from the okta config file"""
         # Check to see if config file exists, if not complain and exit
         # If config file does exist return config dict from file
-        if os.path.isfile(self.OKTA_CONFIG):
-            config = configparser.ConfigParser()
-            config.read(self.OKTA_CONFIG)
+        if not os.path.isfile(self.OKTA_CONFIG):
+            msg = "Configuration file not found! Use the --action-configure flag to generate file."
+            raise errors.GimmeAWSCredsError(msg)
 
+        config = configparser.ConfigParser()
+        config.read(self.OKTA_CONFIG)
+
+        profile_stack = []
+        lookup_stack = [self.conf_profile]
+        prev_profile_name = None
+        while lookup_stack:
+            profile_name = lookup_stack.pop(0)
             try:
-                profile_config = dict(config[self.conf_profile])
-                if "inherits" in profile_config.keys():
-                    print("Using inherited config: " + profile_config["inherits"])
-                    if profile_config["inherits"] not in config:
-                        raise errors.GimmeAWSCredsError(self.conf_profile + " inherits from " + profile_config["inherits"] + ", but could not find " + profile_config["inherits"])
-                    combined_config = {
-                        **dict(config[profile_config["inherits"]]),
-                        **profile_config,
-                    }
-                    del combined_config["inherits"]
-                    return combined_config
-                else:
-                    return profile_config
-
+                profile_config = dict(config[profile_name])
             except KeyError:
-                raise errors.GimmeAWSCredsError(
-                    'Configuration profile not found! Use the --action-configure flag to generate the profile.')
-        raise errors.GimmeAWSCredsError('Configuration file not found! Use the --action-configure flag to generate file.')
+                if prev_profile_name:
+                    msg = "{profile_name} inherits from {prev_profile_name}, but could not find {profile_name}"
+                    msg = msg.format(profile_name=profile_name, prev_profile_name=prev_profile_name)
+                    raise errors.GimmeAWSCredsError(msg)
+                else:
+                    msg = "Configuration profile not found! Use the --action-configure flag to generate the profile."
+                    raise errors.GimmeAWSCredsError(msg)
+
+            if 'inherits' in profile_config:
+                lookup_stack.append(profile_config['inherits'])
+
+            profile_stack.append(profile_config)
+            prev_profile_name = profile_name
+
+        config = {}
+        for profile in reversed(profile_stack):
+            config.update(profile)
+
+        if 'inherits' in config:
+            del config['inherits']
+
+        return config
+
 
     def update_config_file(self):
         """
